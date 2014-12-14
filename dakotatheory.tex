@@ -7,28 +7,53 @@
 
 \usepackage{graphicx}
 \usepackage{listings}
-\usepackage{color}
+\usepackage[dvipsnames]{xcolor}
 \usepackage{hyperref}
 \usepackage{cleveref}
-\definecolor{mygreen}{rgb}{0,0.6,0}
-\definecolor{mygray}{rgb}{0.5,0.5,0.5}
-\definecolor{mymauve}{rgb}{0.58,0,0.82}
 
-\lstset{frame=tb,
-  language=C++,
-  aboveskip=3mm,
-  belowskip=3mm,
-  showstringspaces=false,
-  columns=flexible,
-  basicstyle={\small\ttfamily},
-  numbers=none,
-  numberstyle=\tiny\color{mygray},
-  keywordstyle=\color{blue},
-  commentstyle=\color{mygreen},
-  stringstyle=\color{mymauve},
+%\lstset{frame=tb,
+%  language=C++,
+%  aboveskip=3mm,
+%  belowskip=3mm,
+%  showstringspaces=false,
+%  columns=flexible,
+%  basicstyle={\small\ttfamily},
+%  numbers=none,
+%  numberstyle=\tiny\color{mygray},
+%  keywordstyle=\color{blue},
+%  commentstyle=\color{mygreen},
+%  stringstyle=\color{mymauve},
+%  breaklines=true,
+%  breakatwhitespace=true,
+%  tabsize=2
+%}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+ 
+
+\lstdefinestyle{MyCodeStyle} {
+%  language=C++, % choose the language of the code
+  backgroundcolor=\color{backcolour},
+  commentstyle=\color{codegreen},
+  keywordstyle=\color{magenta},
+  numberstyle=\tiny\color{codegray},
+  stringstyle=\color{codepurple},
+  basicstyle=\footnotesize,
+  breakatwhitespace=false,
   breaklines=true,
-  breakatwhitespace=true,
-  tabsize=2
+  captionpos=b, % sets the caption-position to bottom
+  keepspaces=true,                 
+  numbers=none, % where to put the line-numbers
+  showspaces=false, % show spaces adding particular underscores
+  showstringspaces=false, % underline spaces within strings
+  showtabs=false, % show tabs within strings adding particular underscores
+  frame=single, % adds a frame around the code
+  tabsize=2, % sets default tabsize to 2 spaces
+  rulesepcolor=\color{blue},
+  rulecolor=\color{black},
 }
 
 \hypersetup{
@@ -38,7 +63,6 @@
     linkcolor=black,
     urlcolor=black
 }
-
 
 \graphicspath{ {./img/} }
 % See the ``Memoir customise'' template for some common customisations
@@ -76,6 +100,7 @@ The Dakota Software Toolkit is being developed in the Sandia National Laboratori
 Dakota delivers a variety of iterative methods and strategies, and the ability to flexibly interface them to a simulation code. While Dakota was originally conceived to more readily interface simulation codes and optimization algorithms, recent versions include other iterative analysis methods such as uncertainty quantification with nondeterministic propagation methods, parameter estimation with nonlinear least squares solution methods, and sensitivity/variance analysis with general-purpose design of experiments and parameter study capabilities. These capabilities may be used on their own or as building blocks within more sophisticated strategies such as hybrid optimization, surrogate-based optimization, optimization under uncertainty, or mixed aleatory/epistemic UQ.
 
 These are the principal classes of Dakota algorithms:
+
 \begin{itemize}
 \item Parameter studies.
 \item Design of experiments.
@@ -84,21 +109,9 @@ These are the principal classes of Dakota algorithms:
 \item Calibration.
 \end{itemize}
 
-\section{Using Dakota in Marenostrum}
-We provide the last three versions of Dakota. You can find them in:
+\chapter{Dakota details}
 
-\begin{itemize}
-\item /gpfs/projects/bsc21/DAKOTA/dakota-5.4.0
-\item /gpfs/projects/bsc21/DAKOTA/dakota-6.0.0
-\item /gpfs/projects/bsc21/DAKOTA/dakota-6.1.0
-\end{itemize}
-
-Original code from Dakota has an incompatibility with the queue system of Marenostrum. The queue system kills all the asynchronous task that Dakota uses to run concurrent jobs. We have modified Dakota code to avoid this problem. For more information see Appendix \ref{chapter:CodeMod}
-
-Althought, most of the experiments that we have ran have been done using version 5.4 we encourage you to use the last version. From now on, all the information that we will provide you in this guide will refer to version 6.1.
-
-
-\chapter{Dakota workflow}
+\section{Dakota workflow}
 
 Dakota receives input and configuration from a variety of text files prepared by the user, and connects to any simulation code by other text files. This simple interface is one of the most important features of Dakota, as it makes it easy to change the iterative method or strategy by just changing a few lines in the Dakota input file.
 
@@ -115,6 +128,52 @@ Dakota generates a parameter file for every function evaluation. This file conta
 
 Dakota treats the simulation code as a black box. Most of the commercial codes don't know what to do with the parameter file, so it is common to create a script to connect the simulation code with Dakota. In this script we merge the Dakota parameters file with the simulation code input files. Once we have some proper input files we can run the simulation code, extract the significant data from its output files and post-process that data in order to generate the appropriate objective function and the Dakota results file.
 
+\section{Dakota files}
+
+In order to run Dakota we must provide an input file. This is the typical way to run it:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+dakota -i input_file -o output_file
+\end{lstlisting}
+
+Meanwhile, Dakota provides two files to the simulation code. One is for setting the variables and the other is to receive the outputs. This is an example of how Dakota runs a simulation code:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+./reactor_alya.sh params.in results.out
+\end{lstlisting}
+
+\subsection{Dakota input file format}
+
+There are six sections in every Dakota input file. These sections are identified with the following keywords: variables, interface, responses, model, method, and environment. At least one variable, interface, responses, and method must appear, and no more than one environment should appear.
+
+\chapter{Using Dakota in Marenostrum}
+We provide the last three versions of Dakota. You can find them in:
+
+\begin{itemize}
+\item /gpfs/projects/bsc21/DAKOTA/dakota-5.4.0
+\item /gpfs/projects/bsc21/DAKOTA/dakota-6.0.0
+\item /gpfs/projects/bsc21/DAKOTA/dakota-6.1.0
+\end{itemize}
+
+Original code from Dakota has an incompatibility with the queue system of Marenostrum. The queue system kills all the asynchronous task that Dakota uses to run concurrent jobs. We have modified Dakota code to avoid this problem. For more information see Appendix \ref{chapter:CodeMod}
+
+Althought, most of the experiments that we have ran have been done using version 5.4 we encourage you to use the last version. From now on, all the information that we will provide you in this guide will refer to version 6.1.
+
+In order to run Dakota you will need to set the path of the executables and the directory of the shared libraries. You can add these lines to your .barshrc file:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+export DAK_INSTALL=/gpfs/projects/bsc21/DAKOTA/dakota-6.1.0
+export PATH=${DAK_INSTALL}/bin/:${PATH}
+export LD_LIBRARY_PATH=${DAK_INSTALL}/bin:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=${DAK_INSTALL}/lib:${LD_LIBRARY_PATH}
+\end{lstlisting}
+
+Check that everything is working properly by running:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+dakota -v
+\end{lstlisting}
+
 %\begin{appendices}
 \appendix
 
@@ -122,7 +181,7 @@ Dakota treats the simulation code as a black box. Most of the commercial codes d
 \label{chapter:CodeMod}
 In the Linux Bash terminal, an orphan process can be created by attaching an ampersand at the end of the command line. This is an abstract of the original file CommandShell.cpp where we can see how Dakota runs asynchronous jobs:
 
-\begin{lstlisting}[frame=single]
+\begin{lstlisting}[style=MyCodeStyle,language=C++]
 CommandShell& CommandShell::flush()
 {
   if (asynchFlag)
@@ -133,7 +192,7 @@ CommandShell& CommandShell::flush()
 
 As we can see, Dakota makes a system call using the ampersand when the asynchronous flag is true. In this case, the new process is orphan and this can became a problem. If we want to avoid this, we can not use the ampersand.
 
-\begin{lstlisting}[frame=single]
+\begin{lstlisting}[style=MyCodeStyle,language=C++]
 CommandShell& CommandShell::flush()
 {
   if (asynchFlag)
