@@ -1,8 +1,17 @@
 %! program = pdflatex
 
 %\documentclass[12pt,a4paper]{memoir} % for a long document
-\documentclass[12pt,a4paper,article]{memoir} % for a short document
-
+%\documentclass[12pt,a4paper,article]{memoir} % for a short document
+\documentclass[12pt,a4paper,article]{memoir}
+\usepackage{geometry}
+ \geometry{
+ a4paper,
+ total={210mm,297mm},
+ left=20mm,
+ right=20mm,
+ top=20mm,
+ bottom=20mm,
+ }
 % \usepackage[titletoc]{appendix}
 
 \usepackage{graphicx}
@@ -110,7 +119,8 @@ Dakota generates a parameter file for every function evaluation. This file conta
 
 Dakota treats the simulation code as a black box. Most of the codes, like Alya, don't know what to do with the parameter file, so it is common to create a script to connect the simulation code with Dakota. In this script we merge the Dakota parameters file with the simulation code input files. Once we have some proper input files we can run the simulation code, extract the significant data from its output files and post-process that data in order to generate the appropriate objective function and the Dakota results file.
 
-\chapter{Dakota in Marenostrum}
+\chapter{Dakota tutorial}
+\section{Set up Dakota}
 
 We have installed in Marenostrum the last three versions of Dakota. Althought, most of the experiments that we have ran have been done using version 5.4 we encourage you to use the last version. From now on, all the information that we will provide you in this guide will refer to version 6.1. You can find the several installed versions of Dakota in:
 
@@ -138,8 +148,30 @@ Check that everything is working properly by running:
 dakota -v
 \end{lstlisting}
 
-\chapter{Runing a first example}
-Before learning how to connect Alya with Dakota, let's try to run a simple example.  
+\section{Runing Dakota with a simple input file}
+This section is intended for users who are new to Dakota, to demonstrate the basics of running a simple example.
+
+\begin{enumerate}
+\item Create a working directory.
+\item From path /gpfs/projects/bsc21/DAKOTA/Examples/power, copy files power\_multidim.in and power.py to the working directory.
+\item From the working directory, run: dakota -i power\_multidim.in -o power\_multidim.out \textgreater{} power\_multidim.stdout
+\end{enumerate}
+
+Dakota outputs a large amount of information to help users track progress. Four files should have been created:
+\begin{enumerate}
+\item The screen output has been redirected to the file power\_multidim.stdout. The contents are messages from Dakota and notes about the progress of the iterator (i.e. method/algorithm).
+\item The output file power\_multidim.out contains information about the function evaluations.
+\item power\_multidim.dat is created due to an specification of the input file. This summarizes the variables and responses for each function evaluation.
+\item dakota.rst is a restart file. If a Dakota analysis is interrupted, it can be often be restarted without losing all progress.
+\end{enumerate}
+
+This example used a parameter study method and the power.py test problem. The Python script power.py reads a Dakota parameters file, computes the function $F(x,y)=(X-0.5)^2+(Y+0.5)^2$ and writes the result in a Dakota results file. You can see a plot of the results executing the script:
+
+/gpfs/projects/bsc21/DAKOTA/Examples/power/visualize.sh
+
+As we said, this is a parametric study. Let's try to execute an optimization problem. Now, copy file power\_mas.in to your working directory and run: dakota -i  power\_mas.in -o power\_mas.out \textgreater{} power\_mas.stdout.
+
+This executes a mesh adaptive direct search algorithm. If you look at the output file you will see that the method converges in 160 iterations to the exact solution.
 
 %\begin{appendices}
 \appendix
@@ -223,6 +255,7 @@ CommandShell& CommandShell::flush()
 \end{lstlisting}
 
 In the new version, we call fork to create a new Dakota process for each new simulation. We can identify the original process because the returning value of fork is different from zero. This process exits the function without doing anything. Meanwhile, the new process (its returning value from fork is equal to zero) makes the system call to execute the task, but without detaching it. The task is never an orphan process. Once the task is finished the process is terminated.
+
 
 %\end{appendices}
 
