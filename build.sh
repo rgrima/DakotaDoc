@@ -31,6 +31,7 @@ function PROCESS
   pdflatex ${name}
 #  bibtex   ${auxn}
   pdflatex ${name}
+  pdflatex ${name}
 }
 
 if [ "$#" -gt 1 ]; then echo -e "${BOLD}ERROR:${END}\n\tToo much parameters"; exit; fi
