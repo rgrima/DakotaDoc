@@ -151,6 +151,8 @@ dakota -v
 \end{lstlisting}
 
 \section{Runing Dakota with a simple input file}
+\label{section:RunDakota}
+
 This section is intended for users who are new to Dakota, to demonstrate the basics of running a simple example.
 
 \begin{enumerate}
@@ -186,6 +188,8 @@ You can see a graphic representation of the results executing the script \textit
   \caption{Mesh adaptive direct search evaluation points}
   \label{fig:Power}
 \end{figure}
+
+\chapter{Dakota files}
 
 \section{Dakota input file format}
 
@@ -271,8 +275,49 @@ Dakota will execute the external program like this:
 
 Where \$i is the iteration number of the method.
 
-The \textit{responses} block of the input file specifies the types of data that the interface will return to Dakota. For our example, the assignment \textit{num\_objective\_functions = 1} indicates that there is only one objective function. Since there are no constraints associated with Rosenbrock's function, the keywords for constraint specifications are omitted. The keywords \textit{no\_gradients} and \textit{no_hessians} indicate that no
+The \textit{responses} block of the input file specifies the types of data that the interface will return to Dakota. For our example, the assignment \textit{num\_objective\_functions = 1} indicates that there is only one objective function. Since there are no constraints associated with Rosenbrock's function, the keywords for constraint specifications are omitted. The keywords \textit{no\_gradients} and \textit{no\_hessians} indicate that no
 derivatives will be provided to the method; none are needed for a parameter study.
+
+\section{Dakota parameters file format}
+
+Prior to invoking a simulation, Dakota creates a parameters file which contains the current parameter values and a set of function requests. Let's execute the same example that we ran in section \ref{section:RunDakota}, but first, uncomment the line that contains \textit{file\_save}. This will prevent Dakota to remove the temporal files that it uses to communicate with the simulation program. If you list your working directory you will see 81 parameters files (params.*) and 81 results files (results.*). This is how it looks like the content of file \textit{params.1}:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+                                          2 variables
+                     -2.000000000000000e+00 X
+                     -2.000000000000000e+00 Y
+                                          1 functions
+                                          1 ASV_1:response_fn_1
+                                          2 derivative_variables
+                                          1 DVV_1:X
+                                          2 DVV_2:Y
+                                          0 analysis_components
+                                          1 eval_id
+\end{lstlisting}
+
+This file can be interpreted as a sequence blocks, where every block contains an array.
+\begin{itemize}
+\item First we find information about variables: the number of variables (2) followed by the variable values and names ($X=-2.0$ and $Y=-2.0$).
+\item The second block contains information of the functions: number of functions (1) followed by kind of response. This information is coded in \textit{ASV\_i}. It can be value, gradient and/or Hessian.
+\item The third block contains information about active variables.
+\item Then information about analysis components.
+\item Finally we have an id of the current iteration 
+\end{itemize}
+
+\section{Dakota results file format}
+
+Once the simulation code has finished it should return the needed information through a results file. This is the file \textit{results.1}: 
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+      8.5 f   
+\end{lstlisting}
+
+It returns the function evaluation value. For a general case we will find a line for every requested response, a line for every requested gradient and a line for every requested Hessian.
+
+After a simulation, Dakota expects to read a file containing responses reflecting the current parameters and corresponding to the function requests in the active set vector. The response data must be in proper format. If the amount of data in the file does not match the function request vector, Dakota will abort execution with an error message.
+
+The format of the numeric fields may be floating point or scientific notation. In the latter case, acceptable exponent characters are \textit{E} or \textit{e}.
+
 
 \appendix
 
