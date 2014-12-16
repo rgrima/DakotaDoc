@@ -63,6 +63,8 @@
   tabsize=2, % sets default tabsize to 2 spaces
   rulesepcolor=\color{blue},
   rulecolor=\color{black},
+  xleftmargin=.1\textwidth,
+  xrightmargin=.1\textwidth,
 }
 
 \hypersetup{
@@ -125,9 +127,9 @@ Dakota treats the simulation code as a black box. Most of the codes, like Alya, 
 We have installed in Marenostrum the last three versions of Dakota. Althought, most of the experiments that we have ran have been done using version 5.4 we encourage you to use the last version. From now on, all the information that we will provide you in this guide will refer to version 6.1. You can find the several installed versions of Dakota in:
 
 \begin{itemize}
-\item /gpfs/projects/bsc21/DAKOTA/dakota-5.4.0
-\item /gpfs/projects/bsc21/DAKOTA/dakota-6.0.0
-\item /gpfs/projects/bsc21/DAKOTA/dakota-6.1.0
+\item \textit{/gpfs/projects/bsc21/DAKOTA/dakota-5.4.0}
+\item \textit{/gpfs/projects/bsc21/DAKOTA/dakota-6.0.0}
+\item \textit{/gpfs/projects/bsc21/DAKOTA/dakota-6.1.0}
 \end{itemize}
 
 If you want to install your own version of Dakota in Marenostrum, please check Appendix \ref{chapter:CodeMod}.
@@ -153,25 +155,94 @@ This section is intended for users who are new to Dakota, to demonstrate the bas
 
 \begin{enumerate}
 \item Create a working directory.
-\item From path /gpfs/projects/bsc21/DAKOTA/Examples/power, copy files power\_multidim.in and power.py to the working directory.
-\item From the working directory, run: dakota -i power\_multidim.in -o power\_multidim.out \textgreater{} power\_multidim.stdout
+\item From path \textit{/gpfs/projects/bsc21/DAKOTA/Examples/power}, copy files \textit{power\_multidim.in} and \textit{power.py} to the working directory.
+\item From the working directory, run: \textit{dakota -i power\_multidim.in -o power\_multidim.out \textgreater{} power\_multidim.stdout}
 \end{enumerate}
 
 Dakota outputs a large amount of information to help users track progress. Four files should have been created:
 \begin{enumerate}
 \item The screen output has been redirected to the file power\_multidim.stdout. The contents are messages from Dakota and notes about the progress of the iterator (i.e. method/algorithm).
-\item The output file power\_multidim.out contains information about the function evaluations.
-\item power\_multidim.dat is created due to an specification of the input file. This summarizes the variables and responses for each function evaluation.
-\item dakota.rst is a restart file. If a Dakota analysis is interrupted, it can be often be restarted without losing all progress.
+\item The output file \textit{power\_multidim.out} contains information about the function evaluations.
+\item \textit{power\_multidim.dat} is created due to an specification of the input file. This summarizes the variables and responses for each function evaluation.
+\item \textit{dakota.rst} is a restart file. If a Dakota analysis is interrupted, it can be often be restarted without losing all progress.
 \end{enumerate}
 
-This example used a parameter study method and the power.py test problem. The Python script power.py reads a Dakota parameters file, computes the function $F(x,y)=(X-0.5)^2+(Y+0.5)^2$ and writes the result in a Dakota results file. You can see a plot of the results executing the script:
+This example used a parameter study method and the \textit{power.py} test problem. The Python script \textit{power.py} reads a Dakota parameters file, computes the function $F(x,y)=(X-0.5)^2+(Y+0.5)^2$ and writes the result in a Dakota results file.
 
-/gpfs/projects/bsc21/DAKOTA/Examples/power/visualize.sh
+As we said, this is a parametric study. Let's try to execute an optimization problem. Now, copy file \textit{power\_mas.in} to your working directory and run: \textit{dakota -i  power\_mas.in -o power\_mas.out \textgreater{} power\_mas.stdout}
 
-As we said, this is a parametric study. Let's try to execute an optimization problem. Now, copy file power\_mas.in to your working directory and run: dakota -i  power\_mas.in -o power\_mas.out \textgreater{} power\_mas.stdout.
+This executes a mesh adaptive direct search algorithm. If you look at the output file you will see that the method converges in 160 iterations and propose as a best objective function a value of $F(X,Y)=0.0$ evaluated for $X=0.5$ and $Y=-0.5$ . That is the minimum of the evaluated function.
 
-This executes a mesh adaptive direct search algorithm. If you look at the output file you will see that the method converges in 160 iterations to the exact solution.
+You can see a graphic representation of the results executing the script \textit{visualize.sh} that you can find in the same directory. This scripts reads the results from the parametric study and from the mesh adaptive direct search algorithm.
+
+\begin{figure}[htb!]
+  \centering
+    \includegraphics[width=0.5\textwidth]{power}
+  \caption{Mesh adaptive direct search evaluation points}
+  \label{fig:Power}
+\end{figure}
+
+\section{Dakota input file format}
+
+There are six sections in every Dakota input file. These sections are identified with the following keywords: \textit{variables}, \textit{interface}, \textit{responses}, \textit{model}, \textit{method}, and \textit{environment}. At least one \textit{variables}, \textit{interface}, \textit{responses}, and \textit{method} must appear, and no more than one \textit{environment} should appear.
+
+\begin{figure}[htb!]
+  \centering
+    \includegraphics[width=0.8\textwidth]{DakotaInputFile}
+  \caption{Relationship between the six blocks}
+  \label{fig:InputFile}
+\end{figure}
+
+Figure \ref{fig:InputFile} shows the relationships between the six keyword blocks. The environment specifies high level Dakota settings, and identifies the top level method. A method runs a model. A model block defines the connections between variables, the interface, and responses. It shows the most common relationships between blocks but others are possible. Most Dakota analyses just needs to define a single method which runs a single model.
+
+For a more concrete example, a simple Dakota input file, \textit{power\_multidim.in}, for a two-dimensional parameter study on $F(x,y)=(X-0.5)^2+(Y+0.5)^2$ function is shown in Figure \ref{fig:PoMuCode}. This input file will be used to describe the basic format and syntax used in all Dakota input files.
+
+\begin{figure}[htb!]
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+environment
+  tabular_graphics_data
+    tabular_graphics_file = 'power_multidim.dat'
+
+method
+  multidim_parameter_study
+    partitions = 8 8
+
+model
+  single
+
+variables
+  continuous_design = 2
+    lower_bounds     -2.0     -2.0
+    upper_bounds      2.0      2.0
+    descriptors       'X'     "Y"
+
+interface
+  fork
+    analysis_driver = './power.py'
+    parameters_file = 'params'
+    results_file    = 'results'
+    file_tag
+   # file_save
+
+responses
+  response_functions = 1
+  no_gradients
+  no_hessians
+\end{lstlisting}
+\caption{Relationship between the six blocks}
+\label{fig:PoMuCode}
+\end{figure}
+
+First, some syntax background:
+\begin{itemize}
+\item Blocks can follow any order.
+\item Comments starts with symbol \textit{\#}.
+\item Use of single or double quotes for string inputs.
+\item Use of commas and/or white spaces for separation of specifications.
+\item The optional use of symbol \textit{=} to indicate supplied data.
+\end{itemize}
+
+The first block that we can find in the file is \textit{environment}. This keyword is used to specify the general Dakota settings such as Dakota’s graphical output and the tabular data output (via the \textit{tabular\_graphics\_data} keyword).
 
 %\begin{appendices}
 \appendix
@@ -214,9 +285,7 @@ This executes a mesh adaptive direct search algorithm. If you look at the output
 %./reactor_alya.sh params.in results.out
 %\end{lstlisting}
 %
-%\subsection{Dakota input file format}
-%
-%There are six sections in every Dakota input file. These sections are identified with the following keywords: variables, interface, responses, model, method, and environment. At least one variable, interface, responses, and method must appear, and no more than one environment should appear.
+
 %
 
 
