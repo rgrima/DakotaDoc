@@ -6,7 +6,6 @@
 \usepackage{geometry}
  \geometry{
  a4paper,
- total={210mm,297mm},
  left=20mm,
  right=20mm,
  top=20mm,
@@ -318,6 +317,60 @@ After a simulation, Dakota expects to read a file containing responses reflectin
 
 The format of the numeric fields may be floating point or scientific notation. In the latter case, acceptable exponent characters are \textit{E} or \textit{e}.
 
+\chapter{Coupling Alya with Dakota}
+
+Alya is not prepared to read a Dakota parameter file, interpret the data and run the simulation. It cannot generate a Dakota results file. In fact, it probably cannot generate the objective function that we want to optimize. That function may be some kind of combination of the Dakota outputs.
+
+So, If we want to connect Alya simulation code with Dakota we must pre-process Alya inputs and post-process its outputs. In Dakota is very usual to use a bash script to do these steps:
+
+\begin{itemize}
+\item Pre-process step: Mix simulation program input files with Dakota parameters file.
+\item Simulation step: Run the simulation program.
+\item Post process step: Read the needed data from outputs of the simulation, compute a cost function and write the result in the appropriate file.
+\end{itemize}
+
+\section{Alya input file preprocessing}
+
+When we run an Alya simulation we will find thousands of parameters in the input files. If we want to run an optimization problem, we must choose the design variables. That means, that the value of that variables can be modified and we must mark those variables in order to be used by Dakota.
+
+In order to mark those variables you should use the same descriptor that you have used in the Dakota input file. For instance, let's imagine that you have a velocity field in one of your Alya input files:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+VELOCITY
+	5.0 -4.0 0.0
+END VELOCITY  
+\end{lstlisting}
+
+If you want to use the two first fields of the velocity as design variables, first you have to create a descriptor for these variables in the Dakota input file:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+variables
+  continuous_design = 2
+    descriptors     'v_x'     'v_y'
+\end{lstlisting}
+
+Then you have to create a template file containing the original Alya input data, but modifying those fields. You should write the descriptor between braces:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+VELOCITY
+	{v_x} {v_y} 0.0
+END VELOCITY
+\end{lstlisting}
+
+This file is ready to be processed with \textbf{dprepro}, which comes with the Dakota distribution. It is an application that can read a Dakota parameter file (variable names and values) and a file supplied by the user (our template file) and generate a file that can be used by our simulation code. Usage:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+dprepro parameters_file template_input_file new_input_file
+\end{lstlisting}
+
+If you want to try a simple example:
+\begin{itemize}
+\item Create a working directory.
+\item Copy all files from path \textit{/gpfs/projects/bsc21/DAKOTA/Examples/preproc} to your working directory.
+\item Execute: \textit{dprepro params veloc.tmp veloc}
+\end{itemize}
+
+If your design variables are stored in different Alya files you will have to create a template file and run dprepro for each one.
 
 \appendix
 
