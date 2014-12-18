@@ -372,6 +372,24 @@ If you want to try a simple example:
 
 If your design variables are stored in different Alya files you will have to create a template file and run dprepro for each one.
 
+\section{Set up Alya execution}
+
+Running one Alya instance for a large problem can consume a lot of resources. Running an optimization problem will require to execute Alya many times. It becomes very important to save these resources as much as possible. We encourage you to use restart files for your executions and to define a proper output set up.
+
+Using a good restart file can speed up your simulation. If the state of the simulation begins close to the solution it will be more stable and it will converge faster.
+
+Right now we are working in prepare a system to use multiple restart files. Our idea is to create some kind of database where we can find restart files associated with evaluation points. Every time that we want to evaluate a new point we must search in the database for the most appropriate restart file. Once our function evaluation has finished we will save a new restart file for future use.
+
+The output from Alya is not necessarily in a shape useful for Dakota, and it can be different for every problem. Alya output can be very large and become a bottleneck, so it's important to focus the attention in the required data. The model solved with Alya must be configured so that all possible desired output is correctly set. Alya provides many options on where on the model output should be stored: volumes, areas, points.
+
+\section{Alya output post-process}
+
+In any case, the output we get is not the cost function expected by Dakota. We need to post-process this information in order to compute the appropriate cost function. We have created a default way in which Alya users can write a script (it can be a simply bash or python script) that reads the Alya output files, computes an externally prepared cost function, and writes the output in the Dakota results file, using the appropriate format.
+
+
+
+
+
 \appendix
 
 \chapter{Dakota Source code modification}
