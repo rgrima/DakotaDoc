@@ -386,7 +386,88 @@ The output from Alya is not necessarily in a shape useful for Dakota, and it can
 
 In any case, the output we get is not the cost function expected by Dakota. We need to post-process this information in order to compute the appropriate cost function. We have created a default way in which Alya users can write a script (it can be a simply bash or python script) that reads the Alya output files, computes an externally prepared cost function, and writes the output in the Dakota results file, using the appropriate format.
 
+In path /gpfs/projects/bsc21/DAKOTA/Examples/postpro you will find an example of how to read Alya outputs and Dakota parameters file, compute a cost function and return the result in a Dakota results file. This is the Python code of file \textit{CostFunc.py}:
 
+\begin{lstlisting}[style=MyCodeStyle,language=Python,numbers=left]
+#!/usr/bin/python
+import sys
+from DKTutils import color, ProgramUse, ProgramError
+from DKTutils import AlyaReadBoundary, DakotaReadParams
+
+class FUNC :
+  DEF  = "Compute the cost function."
+  USE  = color.UNDERLINE+"problem_name"+color.END+" "+ \
+         color.UNDERLINE+"params_file"+color.END+" "+ \
+         color.UNDERLINE+"results_file"+color.END
+  DESC = [ ( "Computes the cost function from an Alya simulati"
+             "on and saves the result in a file. You must supp"
+             "ly:" ),
+           ( "problem_name: Alya's problem name. Is used to re"
+             "ad witness points.",
+           ( "params_file: Used to read evaluation points. "
+             "Dakota's parameters file." ),
+             "results_file: where to write the results. Dakot"
+             "a's results file." ]
+
+######################################
+## Main program
+######################################
+
+if len(sys.argv) != 4 :
+  ProgramUse( FUNC.DEF, FUNC.USE, FUNC.DESC )
+  ProgramError( "Bad number of parameters" )
+
+p_name = sys.argv[1]
+d_para = sys.argv[2]
+d_resu = sys.argv[3]
+
+# Chemic[SET][specie][time_step]
+#   Warning: Chemic[0] is empty
+#   specie:  TG=0, MG=1, DG=2, GL=3, METH=4 and FAME=6
+#   if you only_need last time step use time_step=-1
+module = "chm"  # Read chemic boundary
+mode   = "last"  # "last": Read only last time step
+Chemic = AlyaReadBoundary( p_name, module, mode )
+In_flux = Chemic[2]    # Input flux is in SET number 2
+Ou_flux = Chemic[1]    # Output flux is in SET number 1
+
+# Read parameters values from input file
+VARS = DakotaReadParams( d_para )
+Vel = VARS["V"]
+Tem = VARS["T"]
+
+# Cost of every specie
+SPEC_Cost = [ 0.1, 0.11, 0.11, 0.05, 0.1, 0.25 ]
+Nspecies  = len(SPEC_Cost)  # 6 species
+
+# Compute the benefit from chemical reactions
+Benefit = 0.0
+for j in range(Nspecies) :
+  # Warning Output flux is defined positive in Alya
+  #         Input flux is defined negative
+  Benefit += SPEC_Cost[j]*(Ou_flux[j]+In_flux[j])
+Coste_T = 0.005+0.06*((Tem-313.0)/120.0)**3
+Coste_V = 0.005+0.06*((Vel-0.01)/0.29)**3
+Cost = Coste_T + Coste_V - Benefit
+
+# Write the result in the outptu file
+f = open(d_resu,"w")
+f.write( str(Cost)+ " f\n" )
+f.close()
+\end{lstlisting}
+
+This is a simple Python scripts that requires three parameters: Alya problem name, Dakota parameters file and Dakota results file. It calls two functions to read the Alya boundary file (\textit{AlyaReadBoundary}) and the Dakota parameters file (DakotaReadParams). These functions are defined inside another Python file: \textit{DKTutils.py}. This file contains functions to deal with Dakota and Alya input/output files. Our program computes a function cost:
+
+$CostFunc=0.01+0.06*((\frac{Tem-313.0}{120.0})^{3}+(\frac{Vel-0.01}{0.29})^{3})-\sum\limits_{i=1}^{species} (Cost(i)*(Ou_flux(i)-In_flux(i)))$
+
+Finally, it writes the result in an output file using the Dakota format.
+
+If you want a run this example, create a working directory, copy all the files from the example path and run:
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+./CostFunc.py reactor params results
+\end{lstlisting}
+
+\section{Alya complete example}
 
 
 
