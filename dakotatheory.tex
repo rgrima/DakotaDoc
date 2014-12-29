@@ -2,6 +2,8 @@
 
 %\documentclass[12pt,a4paper]{memoir} % for a long document
 %\documentclass[12pt,a4paper,article]{memoir} % for a short document
+
+
 \documentclass[12pt,a4paper,article]{memoir}
 \usepackage{geometry}
  \geometry{
@@ -18,7 +20,15 @@
 \usepackage[dvipsnames]{xcolor}
 \usepackage{hyperref}
 \usepackage{cleveref}
-\usepackage{enumerate}
+
+\usepackage{paralist}
+\setlength{\parskip}{0.5\baselineskip plus2pt minus2pt}
+\setlength{\parindent}{0pt}
+
+\usepackage{enumitem}
+\setlist[enumerate]{itemsep=0pt,topsep=0pt}
+\setlist[itemize]{itemsep=0pt,topsep=0pt}
+
 
 %\lstset{frame=tb,
 %  language=C++,
@@ -78,8 +88,6 @@
 \graphicspath{ {./img/} }
 % See the ``Memoir customise'' template for some common customisations
 % Don't forget to read the Memoir manual: memman.pdf
-
-\setlength{\parindent}{0cm} % Default is 15pt.
 
 \title{Optimizing Alya simulations of multi-physics problems with Dakota}
 \author{Rogeli Grima}
@@ -244,6 +252,7 @@ responses
 \end{figure}
 
 First, some syntax background:
+
 \begin{itemize}
 \item Blocks can follow any order.
 \item Comments starts with symbol \textit{\#}.
@@ -262,6 +271,7 @@ Most of the time we are going to use the \textit{single} model, that is the defa
 The \textit{variables} block of the input file specifies the characteristics of the parameters that will be used in the problem formulation. The variables can be continuous or discrete, and can be classified as design variables, uncertain variables, or state variables. In figure \ref{fig:PoMuCode} you can see as we have defined two continuous design variables, with their upper and lower bounds and a name: X and Y.
 
 The \textit{interface} block of the input file specifies what approach will be used to map variables into responses as well as details on how Dakota will pass data to and from a simulation code. In this example, the keyword \textit{fork} is used to indicate the use of a user-supplied program. Then we find four keywords: 
+
 \begin{itemize}
 \item \textit{analysis\_driver:} indicates the name of the program to execute. In this case, it is going to use the python program \textit{power.py}. 
 \item \textit{parameters\_file:} name of the dakota parameters file that the driver would receive from Dakota.
@@ -298,6 +308,7 @@ Prior to invoking a simulation, Dakota creates a parameters file which contains 
 \end{lstlisting}
 
 This file can be interpreted as a sequence blocks, where every block contains an array.
+
 \begin{itemize}
 \item First we find information about variables: the number of variables (2) followed by the variable values and names ($X=-2.0$ and $Y=-2.0$).
 \item The second block contains information of the functions: number of functions (1) followed by kind of response. This information is coded in \textit{ASV\_i}. It can be value, gradient and/or Hessian.
@@ -536,7 +547,8 @@ cp ${Output_File} ${TOPDIR}
 
 The file is divided in steps:
 
-\begin{enumerate}[Step 1:]
+%\renewcommand{\labelenumi}{Step \arabic{enumi}:}
+\begin{enumerate}[label=Step \arabic*:,align=right,labelwidth=2.0cm,leftmargin=2.0cm]
 \item Check the script input parameters.
 \item Define environment variables. It is important to define several variables:
 \begin{itemize}
