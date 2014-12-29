@@ -18,6 +18,7 @@
 \usepackage[dvipsnames]{xcolor}
 \usepackage{hyperref}
 \usepackage{cleveref}
+\usepackage{enumerate}
 
 %\lstset{frame=tb,
 %  language=C++,
@@ -77,6 +78,8 @@
 \graphicspath{ {./img/} }
 % See the ``Memoir customise'' template for some common customisations
 % Don't forget to read the Memoir manual: memman.pdf
+
+\setlength{\parindent}{0cm} % Default is 15pt.
 
 \title{Optimizing Alya simulations of multi-physics problems with Dakota}
 \author{Rogeli Grima}
@@ -386,7 +389,7 @@ The output from Alya is not necessarily in a shape useful for Dakota, and it can
 
 In any case, the output we get is not the cost function expected by Dakota. We need to post-process this information in order to compute the appropriate cost function. We have created a default way in which Alya users can write a script (it can be a simply bash or python script) that reads the Alya output files, computes an externally prepared cost function, and writes the output in the Dakota results file, using the appropriate format.
 
-In path /gpfs/projects/bsc21/DAKOTA/Examples/postpro you will find an example of how to read Alya outputs and Dakota parameters file, compute a cost function and return the result in a Dakota results file. This is the Python code of file \textit{CostFunc.py}:
+In path /gpfs/projects/bsc21/DAKOTA/Examples/postpro you will find an example of how to read Alya outputs and Dakota parameters file, compute a cost function and return the result in a Dakota results file. This is the Python code of file \textit{ReactorCost.py}:
 
 \begin{lstlisting}[style=MyCodeStyle,language=Python,numbers=left]
 #!/usr/bin/python
@@ -395,7 +398,7 @@ from DKTutils import color, ProgramUse, ProgramError
 from DKTutils import AlyaReadBoundary, DakotaReadParams
 
 class FUNC :
-  DEF  = "Compute the cost function."
+  DEF  = "Compute the cost of a chemical reaction."
   USE  = color.UNDERLINE+"problem_name"+color.END+" "+ \
          color.UNDERLINE+"params_file"+color.END+" "+ \
          color.UNDERLINE+"results_file"+color.END
@@ -421,15 +424,14 @@ p_name = sys.argv[1]
 d_para = sys.argv[2]
 d_resu = sys.argv[3]
 
-# Chemic[SET][specie][time_step]
-#   Warning: Chemic[0] is empty
-#   specie:  TG=0, MG=1, DG=2, GL=3, METH=4 and FAME=6
-#   if you only_need last time step use time_step=-1
-module = "chm"  # Read chemic boundary
-mode   = "last"  # "last": Read only last time step
-Chemic = AlyaReadBoundary( p_name, module, mode )
-In_flux = Chemic[2]    # Input flux is in SET number 2
-Ou_flux = Chemic[1]    # Output flux is in SET number 1
+f_name =p_name+"-boundary.chm.set"
+mode   = "last"  # mode="last" only the last time step is read
+Chemic = AlyaReadSet( f_name, mode )
+
+# Set  2 contains input flux. Ignore first element
+In_flux = Chemic[2][1:]
+# Set 1 contains output flux. Ignore first element
+Ou_flux = Chemic[1][1:]
 
 # Read parameters values from input file
 VARS = DakotaReadParams( d_para )
@@ -456,7 +458,7 @@ f.write( str(Cost)+ " f\n" )
 f.close()
 \end{lstlisting}
 
-This is a simple Python scripts that requires three parameters: Alya problem name, Dakota parameters file and Dakota results file. It calls two functions to read the Alya boundary file (\textit{AlyaReadBoundary}) and the Dakota parameters file (DakotaReadParams). These functions are defined inside another Python file: \textit{DKTutils.py}. This file contains functions to deal with Dakota and Alya input/output files. Our program computes a function cost:
+This is a simple Python scripts that requires three parameters: Alya problem name, Dakota parameters file and Dakota results file. It calls two functions to read the Alya boundary file (\textit{AlyaReadSet}) and the Dakota parameters file (DakotaReadParams). These functions are defined inside another Python file: \textit{DKTutils.py}. This file contains functions to deal with Dakota and Alya input/output files. Our program computes a function cost:
 
 $CostFunc=0.01+0.06*((\frac{Tem-313.0}{120.0})^{3}+(\frac{Vel-0.01}{0.29})^{3})-\sum\limits_{i=1}^{species} (Cost(i)*(Ou_flux(i)-In_flux(i)))$
 
@@ -464,12 +466,101 @@ Finally, it writes the result in an output file using the Dakota format.
 
 If you want a run this example, create a working directory, copy all the files from the example path and run:
 \begin{lstlisting}[style=MyCodeStyle,language=bash]
-./CostFunc.py reactor params results
+./ReactorCost.py reactor params results
 \end{lstlisting}
 
-\section{Alya complete example}
+\section{Alya execution script}
+
+In path /gpfs/projects/bsc21/DAKOTA/Examples/runscript you will find an executable script that couples Dakota with Alya. This is the bash script file \textit{RunAlya.sh}:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+#!/bin/bash
+
+# STEP 1: Process parameters
+if [ $# -ne 2 ]; then
+  echo "ERROR: wrong number of parameters" 1>&2
+  echo "ERROR: $0 + <input_file> + <output_file>" 1>&2
+  exit
+elif [ ! -f $1 ]; then
+  echo "ERROR: Couldn't find  Input File= $1" 1>&2
+  echo "ERROR: $0 + <input_file> + <output_file>" 1>&2
+  touch $2
+  exit 
+fi
+Input_File=$1
+Output_File=$2
+
+# STEP 2: Define variables
+TOPDIR=`pwd`
+ALYA_EXEC=${HOME}/Projects/Alya/Executables/unix/Alya.x
+ALYA_FILES=${TOPDIR}/cavtri03
+ALYA_NAME=cavtri03
+NUM=$(echo ${Input_File} | awk -F. '{print $NF}') # Iteration number
+# WORKDIR=$TMPDIR/workdir.${NUM}
+WORKDIR=${TOPDIR}/workdir.${NUM}
+
+# STEP 3: Create temporary working directory
+if [ -d ${WORKDIR} ]; then rm -rf ${WORKDIR}; fi
+  mkdir ${WORKDIR}
+cd ${WORKDIR} > /dev/null
+
+# STEP 4: Copy Needed files to the working directory.
+cp ${TOPDIR}/${Input_File} .  # Dakota parameters file
+ln -s ${ALYA_FILES}/* .       # Symbolic link to Alya input files
+
+# STEP 5: Merge Dakota and Alya files
+dprepro ${Input_File} cavtri03.ker.dat.tmp cavtri03.ker.dat
+
+# STEP 6: Run Alya
+MPIRUN="mpirun -np 4"
+${MPIRUN} ${ALYA_EXEC} ${ALYA_NAME} 2> alya.err > alya.out
+stat=$?
+
+# STEP 7: Error processing.
+if [ "${stat}" -ne "0" ]; then
+  echo "Error in ALYA."  1>&2
+  echo "  Error code: ${stat}."  1>&2
+  touch ${TOPDIR}/${Output_File}
+  exit
+fi
 
 
+# STEP 8: Post-process alya output and write output file
+export PYTHONPATH=${TOPDIR}
+ln -s ${TOPDIR}/CavtriCost.py .
+./CavtriCost.py ${ALYA_NAME} ${Input_File} ${Output_File}
+
+# STEP 9: Copy output file to the top directory
+cp ${Output_File} ${TOPDIR}
+\end{lstlisting}
+
+The file is divided in steps:
+
+\begin{enumerate}[Step 1:]
+\item Check the script input parameters.
+\item Define environment variables. It is important to define several variables:
+\begin{itemize}
+\item Alya executable.
+\item Path containing the Alya input files.
+\item The name of the Alya problem.
+\item The working directory. We use the dakota iteration number to generate a different path for every execution.
+\end{itemize}
+\item Create the working directory. Every Alya execution should be done in a new path.
+\item Copy required files to the working directory: Dakota parameters file, Alya input files and any other required file.
+\item Merge Alya and Dakota files using \textit{dprepro}. Use \textit{dprepro} with every Alya file that requires to be preprocessed.
+\item Run Alya. In this example we are running with MPI and four processes. We will explain more sophisticated uses of MPI later.
+\item Check if there is an error. We must check if the Alya simulation has reached the desired state. We can parse the Alya error file or the output file to look for error messages or undesired results.
+\item Post-process Alya output, compute a cost function and write the result in a Dakota results file. If there is an error we can try to modify any of the Alya parameters or create an empty output file. This will stop Dakota execution.
+\item Move the results file to the top directory. We must be very careful creating this file. Dakota starts to read the file once this is created. So, it's a bad idea to create the file and then write the results. This can lead to Dakota errors. The best idea is to create the file in a different directory and then move it to the Dakota execution path.
+\end{enumerate}
+
+If you want to test this example copy all files to a working directory and run:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+ ./RunAlya.sh params.1 results.1
+\end{lstlisting}
+
+This will create a new directory, \textit{workdir.1}, that contains the Alya execution and a Dakota results file, \textit{results.1}, that contains the results of the cost function.
 
 \appendix
 
