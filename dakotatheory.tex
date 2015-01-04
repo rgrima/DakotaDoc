@@ -547,7 +547,6 @@ cp ${Output_File} ${TOPDIR}
 
 The file is divided in steps:
 
-%\renewcommand{\labelenumi}{Step \arabic{enumi}:}
 \begin{enumerate}[label=Step \arabic*:,align=right,labelwidth=2.0cm,leftmargin=2.0cm]
 \item Check the script input parameters.
 \item Define environment variables. It is important to define several variables:
@@ -633,8 +632,8 @@ If we want to run Dakota in Marenostrum using multiple nodes we can find several
 
 We can find several scenarios:
 \begin{itemize}
-\item All the resources to one Dakota function evaluation:
-This is the simplest case. We can only execute one instance of Alya at the same time. So we can dedicate all the resources to this function evaluation. In our execution script we must find out how many available resources do we have. In our Alya execution script we can add this code:
+\item \textbf{All the resources to one Dakota function evaluation:}
+This is the simplest case. We can only execute one instance of Alya at the same time. So we can dedicate all the resources to this function evaluation. It is necessary to find out how many available resources do we have. In our Alya execution script we can add this code:
 
 \begin{lstlisting}[style=MyCodeStyle,language=bash]
 # Check if we are in queue system
@@ -644,7 +643,7 @@ if [ -n "$LSB_DJOB_HOSTFILE" ] &&     # Exist the variable
   NP=$LSB_DJOB_NUMPROC
 elif [ -f hfile ]; then
   HFILE=hfile             # Use a local file as host file
-  NP=$( wc -l ${HFILE} )
+  NP=$( wc -l ${HFILE} | awk '{print $1}' )
 else
   HFILE=./.hfile; echo localhost > $HFILE
   NP=$( grep -e "core id" -e "physical id" /proc/cpuinfo |
@@ -653,10 +652,159 @@ fi
 MPIRUN="mpirun -hostfile ${HFILE} -np ${NP}"
 \end{lstlisting}
 
-These bash commands detects if we are running in the queue system of Marenostrum and uses all available resources to set up MPI. Otherwise, if we are running in an interactive shell, it looks for a host file provided by the user (\textit{hfile}). If this file does not exist, it uses all the processors from current node to execute.
+These bash commands detects if we are running in the queue system of Marenostrum and uses all available resources to set up MPI. This can be done reading the environment variables \textit{LSB\_DJOB\_HOSTFILE} and \textit{LSB\_DJOB\_NUMPROC}. Otherwise, if we are running in an interactive shell, it looks for a host file provided by the user (\textit{hfile}). If this file does not exist, it will use all the available processors from current node.
+
+You can find an example in path \textit{/gpfs/projects/bsc21/DAKOTA/Examples/LSB.case.1}. Copy all files to a working directory. Edit file \textit{RunAlya.sh} and set the Alya executable path to the desired value. In this directory you will find a queue bash script: \textit{LSBqueues.sh}. You can use this file to execute in the three available modes:
+
+\begin{enumerate}
+\item Execute in the current node:
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+./LSBqueues.sh
+\end{lstlisting}
+
+\item Using a hostfile created by us:
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+printf "localhost\nlocalhost\nlocalhost\nlocalhost\n" >  hfile
+./LSBqueues.sh
+\end{lstlisting}
+
+\item Launching the script to the queue system:
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+bsub < LSBqueues.sh
+\end{lstlisting}
+\end{enumerate}
+
+\item \textbf{Distribute the resources in function of concurrency:}
+If a Dakota problem has set the concurrency parameter, we should distribute the available resources. In order to do this, we should check the available resources in the current execution before running Dakota. We must create groups of resources. The number of groups is equal to the number of concurrent executions set in Dakota.
+
+Once our Dakota problem is running there must be a system that controls the access to the different groups. Every new execution should search free resources and lock them, in order that the other execution can't use them.
+
+In path \textit{/gpfs/projects/bsc21/DAKOTA/Examples/LSB.case.2} you can find an example of a Dakota problem with concurrent executions that distribute the available resources. There you will find the file \textit{LSBqueues.sh}.
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+#!/bin/bash
+#
+#  Submit jobs in MN-III  
+#     bsub < LSBqueues.sh
+#
+#
+#BSUB -J DakotaRun 
+#BSUB -W 00:02
+#BSUB -n 32
+#BSUB -oo LSBqueues.out
+#BSUB -eo LSBqueues.err
+#BSUB -q bsc_case
+
+# STEP 1: Set variables
+DAKOTA_INP=concurrent.in
+DAKOTA_OUT=${DAKOTA_INP%.*}.out
+DAKOTA_STD=${DAKOTA_INP%.*}.stdout
+
+# STEP 2: Get available resources
+if [ -n "$LSB_DJOB_HOSTFILE" ] &&     # Exist the variable
+   [ -f "$LSB_DJOB_HOSTFILE" ]; then  # Exist the file
+  HFILE=$LSB_DJOB_HOSTFILE
+  NP=$LSB_DJOB_NUMPROC
+elif [ -f $./hfile ]; then
+  HFILE=./hfile               # Use a local file as host file
+  NP=$( wc -l ${HFILE} | awk '{print $1}' )
+else
+  NP=$( grep -e "core id" -e "physical id" /proc/cpuinfo |
+        sed '$!N;s/\n/ /' | sort -u | wc -l )
+  HFILE=./.hfile
+  for i in $( seq 1 $NP ); do echo localhost; done > $HFILE
+fi
+
+# STEP 3: Get CONC from Dakota input file
+EV_CONC=$( grep evaluation_concurrency ${DAKOTA_INP} )
+CONC=1
+if [ ! -z "${EV_CONC}" ]; then
+  arr=($EV_CONC)
+  NW=${#arr[@]}
+  for i in $( seq 1 $NW )
+  do
+    word1=${arr[i-1]}
+    if [[ ${word1} == evaluation_concurrency ]]; then
+      word2=${arr[i]}
+      if [[ ${word2} == "=" ]]; then
+        CONC=${arr[i+1]}; break
+      elif [[ ${word2} == "="* ]]; then
+        CONC=${word2:1}; break
+      else
+        CONC=${word2}; break
+      fi
+    elif [[ ${word1} == "evaluation_concurrency=" ]]; then
+      CONC=${arr[i]}; break
+    elif [[ ${word1} == "evaluation_concurrency="* ]]; then
+      CONC=${s##*=}; break
+    fi
+  done
+fi
+
+# STEP 4: Create a locks directory
+LOCKS=.locks
+if [ -d $LOCKS ]; then rm -rf .locks; fi
+mkdir $LOCKS
+
+# STEP 5: Distribute hosts between concurrent processes
+Ini=1
+Rem=$NP
+CPUSxP=$((NP/CONC))
+REST=$((NP%CONC))
+for i in $( seq ${CONC} )
+do
+  if [ $i -le $REST ]; then
+    End=$((Ini+CPUSxP))
+  else
+    End=$((Ini+CPUSxP-1))
+  fi
+  fname=$( printf "hfile.%03d" $i )
+  sed  -n "$Ini,$End p" < $HFILE > $LOCKS/$fname
+  Ini=$(($End+1))
+done
+
+# STEP 6:
+dakota -i ${DAKOTA_INP} -o ${DAKOTA_OUT} > ${DAKOTA_STD}
+\end{lstlisting}
+
+This is a bash script that can be used to run Dakota in Marenostrum queue system. It is divided in several steps:
+\begin{enumerate}[label=Step \arabic*:,align=right,labelwidth=2.0cm,leftmargin=2.0cm]
+\item Set Dakota input file name and other variables.
+\item Get the available resources.
+\item Parse the Dakota input file to extract the concurrency of the problem.
+\item Create a temporary directory to contain the lock files.
+\item Divide the main host file in as many pieces as concurrent jobs. We get smaller host files.
+\item Run Dakota.
+\end{enumerate}
+
+Then, we have also modified the Alya execution script, \textit{RunAlyaCon.sh}. We have added this new step:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+# STEP 6.1: Get a host file and create a lock
+for file in $( ls ${TOPDIR}/.locks/hfile.??? )
+do
+  LOCK_DIR=${file}.d
+  if mkdir ${LOCK_DIR} 2> /dev/null ; then
+    HFILE=${file}
+    break
+  fi
+done
+NP=$( wc -l ${HFILE} | awk '{ print $1 }' )
+MPIRUN="mpirun -hostfile ${HFILE} -np ${NP}"
+\end{lstlisting}
+
+In order to create a log we use the instruction \textit{mkdir}. This is an atomic instruction. If we succeed creating the directory, it means that we can get that host file. Otherwise, we should look for another file. Once we have finished we must release the lock:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+# STEP 10: Release lock
+rm -rf ${LOCK_DIR}
+\end{lstlisting}
+
+\item \textbf{Ask for more resources every time that we need to execute a new task:}
+
+
 \end{itemize}
-
-
+ 
 
 \appendix
 
