@@ -800,11 +800,58 @@ In order to create a log we use the instruction \textit{mkdir}. This is an atomi
 rm -rf ${LOCK_DIR}
 \end{lstlisting}
 
-\item \textbf{Ask for more resources every time that we need to execute a new task:}
+\item \textbf{Ask for more resources every time that we need to execute a new task:} In this scenario we are going to ask for new resources every time that Dakota executes the Alya execution script. Alya execution and post-process is encapsulated inside an LSF script that is generated and submitted to the queue system.
 
+You can find an example in path \textit{/gpfs/projects/bsc21/DAKOTA/Examples/LSB.case.3}. There, you can find file \textit{RunAlyaQueue.sh}. This is the interesting part of the file:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+# STEP 6: Create an LSF file
+cat << EOF > ${QUEUE_FILE}
+#BSUB -J DakotaRun 
+#BSUB -W ${QUEUE_TIME}
+#BSUB -n ${QUEUE_NODES}
+#BSUB -oo ${QUEUE_FILE%.*}.out
+#BSUB -eo  ${QUEUE_FILE%.*}.err
+#BSUB -q bsc_case
+
+mpirun ${ALYA_EXEC} ${ALYA_NAME} 2> alya.err > alya.out
+stat=\$?
+
+# STEP 7: Error processing.
+if [ "\${stat}" -ne "0" ]; then
+  echo "Error in ALYA."  1>&2
+  echo "  Error code: \${stat}."  1>&2
+  touch ${TOPDIR}/${Output_File}
+  exit
+fi
+
+# STEP 8: Post-process alya output and write output file
+export PYTHONPATH=${TOPDIR}
+ln -s ${TOPDIR}/CavtriCost.py .
+./CavtriCost.py ${ALYA_NAME} ${Input_File} ${Output_File}
+
+# STEP 9: Copy output file to the top directory
+cp ${Output_File} ${TOPDIR}
+EOF
+
+# STEP 10: Submit the script to the Queue system
+chmod +x ${QUEUE_FILE}
+bsub < ${QUEUE_FILE}
+
+# STEP 11: Wait until the file is created
+while [ ! -f ${TOPDIR}/${Output_File} ]; do sleep 1; done
+\end{lstlisting}
+
+Steps 6 to 10 are encapsulated inside an script. In step 10 we submit the script to the queue system. In the last steps we wait until the  output file is created.
+
+If you want to run this example, you should modify some environment variables in this file. Note, that you can set how many processors your Alya simulation will use and it's time limit. You should run:
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+bsub < LSBqueues.sh
+\end{lstlisting}
 
 \end{itemize}
  
+Using one method or the other will depend on the problem and the available resources. With the first method we are losing one level of parallelism, but we are not wasting resources. With the second method we can run more than one Alya execution at the same time, but we can waste resources. Some times it is not possible to execute more than one Alya execution at the same time, some resources will be unused. The third method works in parallel and does not waste resources, but introduces a delay. We have to wait for the queue system to give us a new slot for every execution. This can be very annoying.
 
 \appendix
 
