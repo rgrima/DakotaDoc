@@ -842,16 +842,187 @@ bsub < ${QUEUE_FILE}
 while [ ! -f ${TOPDIR}/${Output_File} ]; do sleep 1; done
 \end{lstlisting}
 
-Steps 6 to 10 are encapsulated inside an script. In step 10 we submit the script to the queue system. In the last steps we wait until the  output file is created.
+Steps 6 to 10 are encapsulated inside an script. In step 10 we submit the script to the queue system. In the last step we wait until the  output file is created.
 
-If you want to run this example, you should modify some environment variables in this file. Note, that you can set how many processors your Alya simulation will use and it's time limit. You should run:
+If you want to run this example, you should modify some environment variables in this file. Note, that you can set how many processors your Alya simulation will use and its time limit. You should run:
 \begin{lstlisting}[style=MyCodeStyle,language=bash]
 bsub < LSBqueues.sh
 \end{lstlisting}
 
 \end{itemize}
  
-Using one method or the other will depend on the problem and the available resources. With the first method we are losing one level of parallelism, but we are not wasting resources. With the second method we can run more than one Alya execution at the same time, but we can waste resources. Some times it is not possible to execute more than one Alya execution at the same time, some resources will be unused. The third method works in parallel and does not waste resources, but introduces a delay. We have to wait for the queue system to give us a new slot for every execution. This can be very annoying.
+Using one method or the other will depend on the problem and the available resources. With the first method we are losing one level of parallelism, but we are not wasting resources. With the second method we can run more than one Alya execution at the same time, but we can waste resources. Some times it is not possible to execute more than one Alya execution at the same time, some resources will be unused. The third method works in parallel and does not waste resources, but introduces a delay. We have to wait for the queue system to give us a new slot for every execution. This can be very annoying because it depends on Marenostrum load.
+
+\chapter{Dakota methods}
+
+\section{Parameter study capabilities}
+Dakota parameter studies explore the effect of parametric changes within simulation models by computing response data sets at a selection of points in the parameter space, yielding one type of sensitivity analysis. The selection of points is deterministic and structured, or user-specified, in each of the four available parameter study methods:
+
+\begin{description}
+\item[Vector] Performs a parameter study along a line between any two points in an n-dimensional parameter space, where the user specifies the number of steps used in the study.
+
+To use this method you must specify an initial point:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+variables
+  continuous_design = M
+    initial_point     (vector of M reals)
+\end{lstlisting}
+
+and a final point with a number of steps:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+method
+  vector_parameter_study
+    final_point       (vector of N reals)
+    num_steps         ( integer )
+\end{lstlisting}
+
+or an step size and the number of steps:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+method
+  vector_parameter_study
+    step_vector       (vector of M reals)
+    num_steps         ( integer )
+\end{lstlisting}
+
+In path \textit{/gpfs/projects/bsc21/DAKOTA/Examples/PaStVector}, you can find an example of every case. You can use \textit{vectorFP.in} and \textit{vectorSV.in} as Dakota input files.
+
+\item[List] The list parameter study computes response data sets at selected points in parameter space. These points are explicitly specified by the user.
+
+In order to use this method, you must specify a list of points:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+method,
+	list_parameter_study,
+	list_of_points =  (point 1)
+	                  (point 2)
+	                  ...
+	                  (point N)
+\end{lstlisting}
+
+or a file containing a list of points:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+method,
+	list_parameter_study,
+	import_points_file =  points_file
+\end{lstlisting}
+
+In the \textit{/gpfs/projects/bsc21/DAKOTA/Examples/PaStList} directory, you can find a Dakota example of each of the cases (\textit{listOfPo.in} and \textit{listPoFi.in}). You can also find an example of how to write a points file (\textit{PointsFile.dat}. These files should use this structure:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+% Comment line / Description of the columns
+       1     EMPTY           ( Vector of N reals 1 )
+       2     EMPTY           ( Vector of N reals 2 )
+       ...
+       M     EMPTY           ( Vector of N reals M )
+\end{lstlisting}
+
+\item[Centered] The centered parameter study executes multiple coordinate-based parameter studies, one per parameter, centered about the specified Initial Values. This is useful for investigation of function contours in the vicinity of a specific point. For example, after computing an optimum design, this capability could be used for post-optimality analysis in verifying that the computed solution is actually at a minimum or constraint boundary and in investigating the shape of this minimum or constraint boundary.
+
+You must specify an initial point, and a step size and a number of steps in each direction:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+variables
+  continuous_design = N
+    initial_point = ( Vector of N floats )
+
+method
+  centered_parameter_study
+    step_vector         ( Vector of N floats )
+    steps_per_variable  ( Vector of N integers )
+\end{lstlisting}
+
+In path \textit{/gpfs/projects/bsc21/DAKOTA/Examples/PaStCenter}, you can find a Dakota input file example: \textit{CenterPar.in}.
+
+\item[Multidimensional] The multidimensional parameter study computes response data sets for an n-dimensional hypergrid of points. Each variable is partitioned into equally spaced intervals between its upper and lower bounds, and each combination of the values defined by these partitions is evaluated.
+
+You must specify an upper and a lower bound for every direction, and the number of partitions that we will need for every variable:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+variables
+  continuous_design = N
+    lower_bounds      ( Vector of N floats )
+    upper_bounds      ( Vector of N floats )
+
+method
+  multidim_parameter_study
+    partitions        ( Vector of N integers )
+\end{lstlisting}
+
+In path \textit{/gpfs/projects/bsc21/DAKOTA/Examples/PaStMultid}, you can find a Dakota input file example: \textit{MultiPar.in}.
+\end{description}
+
+\section{Optimization methods}
+\subsection{Gradient-Based Local Methods}
+Gradient-based optimizers are best suited for efficient navigation to a local minimum in the vicinity of the initial point. They are not intended to find global optima in nonconvex design spaces. Gradient-based optimization methods are highly efficient, with the best convergence rates of all of the local optimization methods, and are the methods of choice when the problem is smooth, unimodal, and well-behaved.
+
+Gradient accuracy is a critical factor for gradient-based optimizers, as inaccurate derivatives will often lead to failures in the search or pre-mature termination of the method. Analytic gradients and Hessians are ideal but often unavailable. It is most often the case for engineering applications, however, that a finite difference method will be used by the optimization algorithm to estimate gradient values. You can set Dakota to compute finite differences modifying the \textit{responses} block:
+
+\begin{lstlisting}[style=MyCodeStyle,language=bash]
+responses
+  objective_functions = 1
+  no_gradients
+  numerical_gradients              # Use finite difference
+    method_source dakota           # Use Dakota bounds
+    interval_type central          # central/forward diff
+    fd_gradient_step_size = 1.e-4  # Step of the difference
+  no_hessians
+\end{lstlisting}
+
+Note, that, for optimization problems, we ask for objective functions instead of response functions. If our Alya simulation can compute derivatives we can set our Dakota input file using the keyword: \textit{analytic\_gradients}.
+
+Gradient-based methods for nonlinear optimization problems can be described as iterative processes in which a sequence of subproblems, usually which involve an approximation to the full nonlinear problem, are solved until the solution converges to a local optimum of the full problem. The optimization methods available in Dakota fall into several categories, each of which is characterized by the nature of the subproblems solved at each iteration:
+
+\begin{description}
+
+\item[Conjugate gradient] methods require first derivative information and can only be applied to unconstrained problems. The subproblems entail minimizing a quadratic function over a space defined by the gradient and directions
+that are mutually conjugate with respect to the Hessian, though the Hessian is never computed. There are several variants of how those directions are defined. There are several methods available in Dakota: \textit{conmin\_frcg}, \textit{dot\_frcg} (not available) and \textit{optpp\_cg}.
+
+In path \textit{/gpfs/projects/bsc21/DAKOTA/Examples/OpConjGrad} you will find an example of optimizing an Alya problem using the conmin algorithm (\textit{conmin.in}).
+
+\item[Sequential Quadratic Programming (SQP)] methods are appropriate for nonlinear optimization problems with nonlinear constraints. Each subproblem involves minimizing a quadratic approximation the Lagrangian subject to linearized constraints. Only gradient information is required; Hessians are approximated by low-rank updates defined by the step taken at each iterations. Dakota has three SQP methods (\textit{dot\_sqp}, \textit{nlpql\_sqp} and \textit{npsol\_sqp}), but they are not available because the required libraries are not installed.
+
+\item[Newton Methods] can be applied to nonlinear optimization problems with nonlinear constraints. The subproblems associated with these methods entail finding the solution to a linear system of equations derived by setting the derivative of a second-order Taylor series expansion to zero. We can find several versions:
+
+\begin{itemize}
+\item The full Newton method (\textit{optpp\_newton}) expects both gradients and Hessians to be provided.
+\item Quasi-Newton methods (\textit{optpp\_q\_newton}, \textit{dot\_bfgs}) expect only gradients. The Hessian is approximated by the Broyden-Fletcher-Goldfarb-Shanno (BFGS) low-rank updates.
+\item The finite difference Newton method (\textit{optpp\_fd\_newton}) expects only gradients and approximates the Hessian with second-order finite differences.
+\end{itemize}
+
+In path \textit{/gpfs/projects/bsc21/DAKOTA/Examples/OpNewtonMe} you can find three examples that use Newton methods with an Alya optimization problem: \textit{optpp\_newton.in},  \textit{optpp\_q\_newton.in} and \textit{optpp\_fd\_newton.in}.
+
+\item[Method of Feasible Directions] (MFD) methods are appropriate for nonlinear optimization problems with nonlinear
+constraints. These methods ensure that all iterates remain feasible. Dakota includes conmin\_mfd and dot\_mmfd.
+
+\end{description}
+
+\subsection{Derivative-Free Local Methods}
+
+Derivative-free methods can be more robust and more inherently parallel than gradient-based approaches. They can be applied in situations were gradient calculations are too expensive or unreliable. In addition, some derivativefree methods can be used for global optimization which gradient-based techniques, by themselves, cannot. For these reasons, derivative-free methods are often go-to methods when the problem may be nonsmooth, multimodal, or poorly behaved. It is important to be aware, however, that they exhibit much slower convergence rates for finding an optimum, and as a result, tend to be much more computationally demanding than gradientbased methods. Given the computational cost, it is often prudent to use derivative-free methods to identify regions of interest and then use gradient-based methods to home in on the solution.
+
+There are several derivative-free methods available in Dakota:
+
+\begin{description}
+\item[Pattern search] methods can be applied to nonlinear optimization problems with nonlinearities. There are two main pattern search methods available in Dakota, and they vary according to richness of available stencil and the way constraints supported. We can find three methods: \textit{asynch\_pattern\_search}, \textit{coliny\_pattern\_search} and \textit{mesh\_adaptive\_search}.
+
+
+\end{description}
+
+
+
+
+
+
+
+
+
+
+
+
 
 \appendix
 
