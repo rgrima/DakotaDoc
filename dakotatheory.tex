@@ -1007,22 +1007,43 @@ Derivative-free methods can be more robust and more inherently parallel than gra
 There are several derivative-free methods available in Dakota:
 
 \begin{description}
-\item[Pattern search] methods can be applied to nonlinear optimization problems with nonlinearities. There are two main pattern search methods available in Dakota, and they vary according to richness of available stencil and the way constraints supported. We can find three methods: \textit{asynch\_pattern\_search}, \textit{coliny\_pattern\_search} and \textit{mesh\_adaptive\_search}.
+\item[Pattern search] methods can be applied to nonlinear optimization problems with nonlinearities. There are three  pattern search methods available in Dakota that vary according to richness of available stencil and the way constraints supported: \textit{asynch\_pattern\_search}, \textit{coliny\_pattern\_search} and \textit{mesh\_adaptive\_search}.
 
+In path \textit{/gpfs/projects/bsc21/DAKOTA/Examples/OpPatSe} you can find two examples of how to run a pattern search method: \textit{mesh.in} and \textit{asynch.in}.
 
+\item[Simplex] methods for nonlinear optimization problem are similar to pattern search methods, but their search directions are defined by triangles that are reflected, expanded, and contracted across the variable space. The two simplex-based methods available in Dakota are optpp\_pds and coliny\_cobyla. These methods can not run multiple task at the same time.
+
+\item[Greedy Search Heuristic] for nonlinear optimization problems is captured in the Solis-Wets (coliny\_solis\_wets) method. This method takes a sampling-based approach in order to identify search directions. It does a poor job solving problems with nonlinear constraints and it can not run multiple tasks
 \end{description}
 
 
+\subsection{Derivative-Free Global Methods}
+There are two types of global optimization methods in Dakota:
 
+\begin{description}
+\item[Evolutionary Algorithms] (EA) are based on Darwin’s theory of survival of the fittest. The EA algorithm starts with a randomly selected population of design points in the parameter space, where the values of the design parameters form a “genetic string,” analogous to DNA in a biological system, that uniquely represents each design point in the population. The EA then follows a sequence of generations, where the best design points in the population (i.e., those having low objective function values) are considered to be the most “fit” and are allowed to survive and reproduce. The EA simulates the evolutionary process by employing the mathematical analogs of processes such as natural selection, breeding, and mutation. Ultimately, the EA identifies a design point (or a family of design points) that minimizes the objective function of the optimization problem. EAs available in Dakota include \textit{coliny\_ea}, \textit{soga}, and \textit{moga}.
 
+\item[DIvision of RECTangles (DIRECT)] balances local search in promising regions of the design space with global search in unexplored regions. It adaptively subdivides the space of feasible design points to guarantee that iterates are generated in the neighborhood of a global minimum in finitely many iterations. Dakota includes two implementations (\textit{ncsu\_direct} and \textit{coliny\_direct}).
 
+In path \textit{/gpfs/projects/bsc21/DAKOTA/Examples/OpDivRec} you can find file \textit{ncsu.in} that implements an optimization using \textit{ncsu\_direct} method.
 
+\item[Efficient Global Optimization (EGO)] is a global optimization technique that employs response surface surrogates. In each EGO iteration, a Gaussian process (GP) approximation for the objective function is constructed based on sample points of the true simulation. The GP allows one to specify the prediction at a new input location as well as the uncertainty associated with that prediction. The key idea in EGO is to maximize an Expected Improvement Function (EIF), defined as the expectation that any point in the search space will provide a better solution than the current best solution, based on the expected values and variances predicted by the GP model. Points with good expected values and even a small variance will have a significant expectation of producing a better solution (exploitation), but so will points that have relatively poor expected values and greater variance (exploration). This provides a balance between exploiting areas of the design space that predict good solutions, and exploring areas where more information is needed.
 
+In path \textit{/gpfs/projects/bsc21/DAKOTA/Examples/OpEGO} you can find an example of efficient global optimization: \textit{EGO.in}.
 
+\end{description}
 
+\subsection{Optimization with User-specified or Automatic Scaling}
 
+Some optimization problems involving design variables, objective functions, or constraints on vastly different scales may be solved more efficiently if these quantities are adjusted to a common scale (typically on the order of unity). With any optimizer, user-specified characteristic value scaling may be applied to any of continuous design variables, functions/residuals, nonlinear inequality and equality constraints, and linear inequality and equality constraints. Automatic scaling is available for variables or
+responses with one- or two-sided bounds or equalities and may be combined with user-specified scaling values. Logarithmic (log10) scaling is available and may also be combined with characteristic values. Log scaling is not available for linear constraints. Moreover, when continuous design variables are log scaled, linear constraints are not permitted in the problem formulation. Discrete variable scaling is not supported.
 
+Scaling is enabled by including the \textit{scaling} keyword in the relevant method specification in the Dakota input deck. When scaling is enabled the values are transformed such that the optimizer iterates in scaled variable space, whereas evaluations of the computational model as specified in the interface are performed on the original problem scale.
 
+Scaling for a particular variable or response type is enabled through the \textit{*\_scale\_types} specification. Valid options
+for this string specification include \textit{`none'} (default), \textit{`value'}, \textit{`auto'}, or \textit{`log'}, for no, characteristic value, automatic, or logarithmic scaling, respectively.
+
+The user may additionally specify no, one, or a vector of characteristic scale values through the \textit{*\_scales} specification. These characteristic values are ignored for scaling type \textit{`none'}, required for \textit{`value'}, and optional for \textit{`auto'} and \textit{`log'}.
 
 \appendix
 
