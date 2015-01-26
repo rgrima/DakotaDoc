@@ -501,8 +501,7 @@ In path /gpfs/projects/bsc21/DAKOTA/Examples/runscript you will find an executab
 
 \begin{lstlisting}[style=MyCodeStyle,language=bash]
 #!/bin/bash
-
-# STEP 1: Process parameters
+# Part 1: Process parameters
 if [ $# -ne 2 ]; then
   echo "ERROR: wrong number of parameters" 1>&2
   echo "ERROR: $0 + <input_file> + <output_file>" 1>&2
@@ -516,33 +515,32 @@ fi
 Input_File=$1
 Output_File=$2
 
-# STEP 2: Define variables
+# Part 2: Define variables
 TOPDIR=`pwd`
 ALYA_EXEC=${HOME}/Projects/Alya/Executables/unix/Alya.x
 ALYA_FILES=${TOPDIR}/cavtri03
 ALYA_NAME=cavtri03
-NUM=$( grep eval_id ${Input_File} | awk '{print $1}' ) # Iter Num
-# WORKDIR=$TMPDIR/workdir.${NUM}
+NUM=$( grep eval_id ${Input_File} | awk '{print $1}' )
 WORKDIR=${TOPDIR}/workdir.${NUM}
 
-# STEP 3: Create temporary working directory
+# Part 3: Create temporary working directory
 if [ -d ${WORKDIR} ]; then rm -rf ${WORKDIR}; fi
   mkdir ${WORKDIR}
 cd ${WORKDIR} > /dev/null
 
-# STEP 4: Copy Needed files to the working directory.
+# Part 4: Copy Needed files to the working directory.
 cp ${TOPDIR}/${Input_File} .  # Dakota parameters file
 ln -s ${ALYA_FILES}/* .       # Symbolic link to Alya input files
 
-# STEP 5: Merge Dakota and Alya files
+# Part 5: Merge Dakota and Alya files
 dprepro ${Input_File} cavtri03.ker.dat.tmp cavtri03.ker.dat
 
-# STEP 6: Run Alya
+# Part 6: Run Alya
 MPIRUN="mpirun -np 4"
 ${MPIRUN} ${ALYA_EXEC} ${ALYA_NAME} 2> alya.err > alya.out
 stat=$?
 
-# STEP 7: Error processing.
+# Part 7: Error processing.
 if [ "${stat}" -ne "0" ]; then
   echo "Error in ALYA."  1>&2
   echo "  Error code: ${stat}."  1>&2
@@ -550,20 +548,23 @@ if [ "${stat}" -ne "0" ]; then
   exit
 fi
 
-
-# STEP 8: Post-process alya output and write output file
+# Part 8: Post-process alya output and write output file
 export PYTHONPATH=${TOPDIR}
 ln -s ${TOPDIR}/CavtriCost.py .
 ./CavtriCost.py ${ALYA_NAME} ${Input_File} ${Output_File}
 
-# STEP 9: Copy output file to the top directory
+# Part 9: Copy output file to the top directory
 cp ${Output_File} ${TOPDIR}
 \end{lstlisting}
 
-The file is divided in steps:
+This script is divided in several parts:
 
-\begin{enumerate}[label=Step \arabic*:,align=right,labelwidth=2.0cm,leftmargin=2.0cm]
-\item Check the script input parameters.
+\begin{enumerate}[label=Part \arabic*:,align=right,labelwidth=2.0cm,leftmargin=2.0cm]
+\item Check the script input parameters. Dakota will supply two files to this script:
+\begin{itemize}
+\item Dakota's parameters file name.
+\item Dakota's results file name.
+\end{itemize}
 \item Define environment variables. It is important to define several variables:
 \begin{itemize}
 \item Alya executable.
@@ -571,8 +572,8 @@ The file is divided in steps:
 \item The name of the Alya problem.
 \item The working directory. We use the Dakota iteration number to generate a different path for every execution.
 \end{itemize}
-\item Create the working directory. Every Alya execution should be done in a new path.
-\item Copy required files to the working directory: Dakota parameters file, Alya input files and any other required file.
+\item Create the working directory. Every Alya execution should run in a new path.
+\item Copy required files to the working directory: Dakota parameters file, Alya input files and any other required files. Files that are not modified can be just linked. Otherwise, if the file needs to be modified, you need to create a copy of that file.
 \item Merge Alya and Dakota files using \textit{dprepro}. Use \textit{dprepro} with every Alya file that requires to be preprocessed.
 \item Run Alya. In this example we are running with MPI and four processes. We will explain more sophisticated uses of MPI later.
 \item Check if there is an error. We must check if the Alya simulation has reached the desired state. We can parse the Alya error file or the output file to look for error messages or undesired results.
@@ -587,6 +588,23 @@ If you want to test this example copy all files to a working directory, modify t
 \end{lstlisting}
 
 This will create a new directory, \textit{workdir.1}, that contains the Alya execution and a Dakota results file, \textit{results.1}, that contains the results of the cost function.
+
+If you want to make use of this script to run your problem, you should follow the following steps:
+\begin{enumerate}[label=Step \arabic*:,align=right,labelwidth=2.0cm,leftmargin=2.0cm]
+\item Modify part 2 of the script (environment variables):
+\begin{itemize}
+\item Set \textit{ALYA\_EXEC} to the path of the desired Alya executable.
+\item Set \textit{ALYA\_FILES} to the path where you store the files of your Alya problem.
+\item Set \textit{ALYA\_NAME} with the name of your Alya problem.
+\item Optional. Set a different path for variable \textit{WORKDIR} if you want to store the new executions in a different place. This can be used to use a different drive.
+\end{itemize}
+\item Check part 4. Sometimes it will be better to copy (\textbf{cp}) a file instead of using a link (\textbf{ln}).
+\item Modify part 5. Use \textit{dprepro} with all your files that contains a variable.
+\item Check part 6. Are you going to use mpirun? How many processes?
+\item Check part 7. Detect some extra errors in your Alya execution.
+\item Modify part 8. Supply an executable (or script) that reads the Alya and Dakota files and generates a cost function.
+\end{enumerate}
+
 
 \chapter{Running in parallel}
 If we run Alya with Dakota we will have multiple levels of parallelism. In one hand, we have Alya, that is a massive parallel program, that can run in serial or in parallel. In the other hand, we have Dakota that sometimes can execute more than one function evaluation at a time. You can choose the method that fits you best:

@@ -9,7 +9,7 @@ shopt -s expand_aliases
 function CLEAN
 {
   fn=$1
-  for ext in aux dvi log pdf toc blg bbl
+  for ext in aux dvi log toc blg bbl out # pdf
   do
     name=${fn}.${ext}
     if [ -f ${name} ]
