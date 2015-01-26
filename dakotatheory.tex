@@ -405,75 +405,90 @@ In path /gpfs/projects/bsc21/DAKOTA/Examples/postpro you will find an example of
 \begin{lstlisting}[style=MyCodeStyle,language=Python,numbers=left]
 #!/usr/bin/python
 import sys
-from DKTutils import color, ProgramUse, ProgramError
-from DKTutils import AlyaReadBoundary, DakotaReadParams
-
-class FUNC :
-  DEF  = "Compute the cost of a chemical reaction."
-  USE  = color.UNDERLINE+"problem_name"+color.END+" "+ \
-         color.UNDERLINE+"params_file"+color.END+" "+ \
-         color.UNDERLINE+"results_file"+color.END
-  DESC = [ ( "Computes the cost function from an Alya simulati"
-             "on and saves the result in a file. You must supp"
-             "ly:" ),
-           ( "problem_name: Alya's problem name. Is used to re"
-             "ad witness points.",
-           ( "params_file: Used to read evaluation points. "
-             "Dakota's parameters file." ),
-             "results_file: where to write the results. Dakot"
-             "a's results file." ]
-
+from DKTutils import ProgramError
+from DKTutils import AlyaReadSet, DakotaReadParams
 ######################################
 ## Main program
 ######################################
 
+# Part 1: Read script number of parameters
 if len(sys.argv) != 4 :
-  ProgramUse( FUNC.DEF, FUNC.USE, FUNC.DESC )
   ProgramError( "Bad number of parameters" )
 
-p_name = sys.argv[1]
-d_para = sys.argv[2]
-d_resu = sys.argv[3]
+# Part 2: Read script parameters
+p_name = sys.argv[1]   # Alya problem name
+d_para = sys.argv[2]   # Dakota parameters file
+d_resu = sys.argv[3]   # Dakota results file
 
+# Part 3: Read the Alya boundary file
 f_name =p_name+"-boundary.chm.set"
-mode   = "last"  # mode="last" only the last time step is read
-Chemic = AlyaReadSet( f_name, mode )
+mode   = "last"
+# If mode="last" only the last time step is read (alt: all)
+Chemic = AlyaReadSet( f_name, mode="last" )
 
-# Set  2 contains input flux. Ignore first element
-In_flux = Chemic[2][1:]
-# Set 1 contains output flux. Ignore first element
-Ou_flux = Chemic[1][1:]
+# Part 4: Extract Input flux (SET=2) and Output flux (SET=1)
+#         specie:  TG=1, MG=2, DG=3, GL=4, METH=5 and FAME=6
+In_flux = Chemic[2][1:]    # Ignore first element.
+Ou_flux = Chemic[1][1:]    # Ignore first element.
 
-# Read parameters values from input file
+# Part 5: Read variable values from Dakota parameters file
 VARS = DakotaReadParams( d_para )
 Vel = VARS["V"]
 Tem = VARS["T"]
 
-# Cost of every specie
-SPEC_Cost = [ 0.1, 0.11, 0.11, 0.05, 0.1, 0.25 ]
-Nspecies  = len(SPEC_Cost)  # 6 species
+# Part 6: Compute the cost function
+# Price of every specie
+SPEC_Price = [ 0.1, 0.11, 0.11, 0.05, 0.1, 0.25 ]
+# Number of species
+Nspecies  = len(SPEC_Price)
 
 # Compute the benefit from chemical reactions
+# WARNING: Output flux is defined positive in Alya
+#          Input flux is defined negative
 Benefit = 0.0
 for j in range(Nspecies) :
-  # Warning Output flux is defined positive in Alya
-  #         Input flux is defined negative
-  Benefit += SPEC_Cost[j]*(Ou_flux[j]+In_flux[j])
-Coste_T = 0.005+0.06*((Tem-313.0)/120.0)**3
-Coste_V = 0.005+0.06*((Vel-0.01)/0.29)**3
-Cost = Coste_T + Coste_V - Benefit
+  Benefit += SPEC_Price[j]*(Ou_flux[j]+In_flux[j])
 
-# Write the result in the outptu file
+# Compute the cost to increment the temperature
+CostTem = 1.0e-3*(Tem-300.0)**2
+
+# Compute the cost to increment the speed
+CostVel = 2.0e-5*(Vel-0.01)**2
+
+# Total Cost
+Cost = CostTem + CostVel - Benefit
+
+# Part 7: Write the result in the output file
 f = open(d_resu,"w")
 f.write( str(Cost)+ " f\n" )
 f.close()
 \end{lstlisting}
 
-This is a simple Python scripts that requires three parameters: Alya problem name, Dakota parameters file and Dakota results file. It calls two functions to read the Alya boundary file (\textit{AlyaReadSet}) and the Dakota parameters file (DakotaReadParams). These functions are defined inside another Python file: \textit{DKTutils.py}. This file contains functions to deal with Dakota and Alya input/output files. Our program computes a function cost:
+This is a simple Python script. We have divided it in several parts:
+\begin{enumerate}[label=Part \arabic*:,align=right,labelwidth=2.0cm,leftmargin=2.0cm]
+\item First we check that we are calling the script with the appropriate number of parameters.
+\item We read three parameters:
+\begin{itemize}
+\item Alya's problem name.
+\item Dakota's parameters file name.
+\item Dakota's results file name.
+\end{itemize}
+\item Read the Alya boundary file using function \textit{AlyaReadSet} (it is defined inside file \textit{DKTutils.py}). It returns an structure containing the information of a boundary or a witness point.
+\item Extract the needed information of the previous structure. The first dimension of the structure contains the Alya \textit{Set}. The second dimension contains the elements. The third dimension, if required, contains the time steps.
+\item Read the values of the Dakota parameters file using function \textit{DakotaReadParams} (this function is also defined in \textit{DKTutils.py}).
+\item Compute a cost function. In this example we calculate the following equation:
 
-$CostFunc=0.01+0.06*((\frac{Tem-313.0}{120.0})^{3}+(\frac{Vel-0.01}{0.29})^{3})-\sum\limits_{i=1}^{species} (Cost(i)*(Ou_flux(i)-In_flux(i)))$
+$CostTem = 1.0\times10^3*(Tem-300.0)^{2}$
 
-Finally, it writes the result in an output file using the Dakota format.
+$CostVel = 2.0\times10^5*(Vel-0.01)$
+
+$Benefit = \sum\limits_{i=1}^{species} (Cost(i)*(Ou_flux(i)-In_flux(i)))$
+
+$Cost = CostTem + CostVel - Benefit$
+
+\item Finally, it writes the result in an output file using the Dakota format.
+
+\end{enumerate}
 
 If you want a run this example, create a working directory, copy all the files from the example path and run:
 \begin{lstlisting}[style=MyCodeStyle,language=bash]
