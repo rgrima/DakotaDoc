@@ -168,7 +168,7 @@ This section is intended for users who are new to Dakota, to demonstrate the bas
 \begin{enumerate}
 \item Create a working directory.
 \item From path \textit{/gpfs/projects/bsc21/DAKOTA/Examples/power}, copy files \textit{power\_multidim.in} and \textit{power.py} to the working directory.
-\item From the working directory, run: \textit{dakota -i power\_multidim.in -o power\_multidim.out \textgreater{} power\_multidim.stdout}
+\item From the working directory, run: \textbf{dakota -i power\_multidim.in -o power\_multidim.out \textgreater{} power\_multidim.stdout}
 \end{enumerate}
 
 Dakota outputs a large amount of information to help users track progress. Four files should have been created:
@@ -197,6 +197,32 @@ You can see a graphic representation of the results executing the script \textit
     \includegraphics[width=0.5\textwidth]{power}
   \caption{Mesh adaptive direct search evaluation points}
   \label{fig:Power}
+\end{figure}
+
+\section{Runing a simple Alya problem with Dakota}
+\label{section:RunSimpleAlya}
+In this section we want to present a simplified Alya problem running under Dakota. If you want to test this example:
+\begin{itemize}
+\item Create a copy of directory \textit{/gpfs/projects/bsc21/DAKOTA/Examples/AlyaSimple}.
+\item Edit file \textit{RunAlya.sh}. Set variable \textit{ALYA\_EXEC} to your Alya executable path.
+\item From the working directory, run: \textbf{make}, or \textbf{dakota -i AlyaSimple.in -o AlyaSimple.out \textgreater{} AlyaSimple.stdout}.
+\end{itemize}
+
+In this directory there are two main files:
+\begin{description}
+\item[AlyaSimple.in] This is the Dakota configuration file. It sets Dakota to use a DIRECT method to do an optimization using variable \textit{DENSITY} between $[0.8,1.2]$.
+\item[RunAlya.sh] This is a bash script that pre-process Alya input files, executes Alya, extract the information from Alya output files, computes a cost function using this data and returns the results in a Dakota results file. The computed cost function is:
+
+$Cost=(4.65\times10^{-3} - \sum\limits_{i=1}^{4}(Bound_{i,4})^2)^2$
+\end{description}
+
+This test is trying to find the DENSITY value that minimizes the cost function. You can see the results of executing this test in figure \ref{fig:AlyaSimple}, or you can run the script \textit{visualize.sh}.
+
+\begin{figure}[htb!]
+  \centering
+    \includegraphics[width=0.5\textwidth]{AlyaSimple}
+  \caption{NCSU optimization}
+  \label{fig:AlyaSimple}
 \end{figure}
 
 \chapter{Dakota files}
@@ -529,8 +555,8 @@ if [ -d ${WORKDIR} ]; then rm -rf ${WORKDIR}; fi
 cd ${WORKDIR} > /dev/null
 
 # Part 4: Copy Needed files to the working directory.
-cp ${TOPDIR}/${Input_File} .  # Dakota parameters file
-ln -s ${ALYA_FILES}/* .       # Symbolic link to Alya input files
+cp ${TOPDIR}/${Input_File} .       # Dakota parameters file
+ln -s ${ALYA_FILES}/* .  # Symbolic link to Alya input file
 
 # Part 5: Merge Dakota and Alya files
 dprepro ${Input_File} cavtri03.ker.dat.tmp cavtri03.ker.dat
